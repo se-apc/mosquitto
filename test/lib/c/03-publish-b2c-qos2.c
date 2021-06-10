@@ -53,6 +53,9 @@ int main(int argc, char *argv[])
 	mosquitto_lib_init();
 
 	mosq = mosquitto_new("publish-qos2-test", true, &run);
+	if(mosq == NULL){
+		return 1;
+	}
 	mosquitto_connect_callback_set(mosq, on_connect);
 	mosquitto_message_callback_set(mosq, on_message);
 	mosquitto_message_retry_set(mosq, 5);
@@ -63,6 +66,7 @@ int main(int argc, char *argv[])
 		mosquitto_loop(mosq, 300, 1);
 	}
 
+	mosquitto_destroy(mosq);
 	mosquitto_lib_cleanup();
 	return run;
 }

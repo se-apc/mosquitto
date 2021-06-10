@@ -2,13 +2,15 @@
 Copyright (c) 2009-2020 Roger Light <roger@atchoo.org>
 
 All rights reserved. This program and the accompanying materials
-are made available under the terms of the Eclipse Public License v1.0
+are made available under the terms of the Eclipse Public License 2.0
 and Eclipse Distribution License v1.0 which accompany this distribution.
 
 The Eclipse Public License is available at
-   http://www.eclipse.org/legal/epl-v10.html
+   https://www.eclipse.org/legal/epl-2.0/
 and the Eclipse Distribution License is available at
   http://www.eclipse.org/org/documents/edl-v10.php.
+
+SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
 Contributors:
    Roger Light - initial implementation and documentation.
@@ -34,25 +36,29 @@ Contributors:
 #  include <sys/stat.h>
 #endif
 
+#include "misc_mosq.h"
+
 
 FILE *mosquitto__fopen(const char *path, const char *mode, bool restrict_read)
 {
 #ifdef WIN32
 	char buf[4096];
 	int rc;
-	rc = ExpandEnvironmentStrings(path, buf, 4096);
+	rc = ExpandEnvironmentStringsA(path, buf, 4096);
 	if(rc == 0 || rc > 4096){
 		return NULL;
 	}else{
 		if (restrict_read) {
 			HANDLE hfile;
 			SECURITY_ATTRIBUTES sec;
-			EXPLICIT_ACCESS ea;
+			EXPLICIT_ACCESS_A ea;
 			PACL pacl = NULL;
 			char username[UNLEN + 1];
-			int ulen = UNLEN;
+			DWORD ulen = UNLEN;
 			SECURITY_DESCRIPTOR sd;
 			DWORD dwCreationDisposition;
+			int fd;
+			FILE *fptr;
 
 			switch(mode[0]){
 				case 'a':
@@ -68,12 +74,12 @@ FILE *mosquitto__fopen(const char *path, const char *mode, bool restrict_read)
 					return NULL;
 			}
 
-			GetUserName(username, &ulen);
+			GetUserNameA(username, &ulen);
 			if (!InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION)) {
 				return NULL;
 			}
-			BuildExplicitAccessWithName(&ea, username, GENERIC_ALL, SET_ACCESS, NO_INHERITANCE);
-			if (SetEntriesInAcl(1, &ea, NULL, &pacl) != ERROR_SUCCESS) {
+			BuildExplicitAccessWithNameA(&ea, username, GENERIC_ALL, SET_ACCESS, NO_INHERITANCE);
+			if (SetEntriesInAclA(1, &ea, NULL, &pacl) != ERROR_SUCCESS) {
 				return NULL;
 			}
 			if (!SetSecurityDescriptorDacl(&sd, TRUE, pacl, FALSE)) {
@@ -85,7 +91,7 @@ FILE *mosquitto__fopen(const char *path, const char *mode, bool restrict_read)
 			sec.bInheritHandle = FALSE;
 			sec.lpSecurityDescriptor = &sd;
 
-			hfile = CreateFile(buf, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
+			hfile = CreateFileA(buf, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
 				&sec,
 				dwCreationDisposition,
 				FILE_ATTRIBUTE_NORMAL,
@@ -93,12 +99,12 @@ FILE *mosquitto__fopen(const char *path, const char *mode, bool restrict_read)
 
 			LocalFree(pacl);
 
-			int fd = _open_osfhandle((intptr_t)hfile, 0);
+			fd = _open_osfhandle((intptr_t)hfile, 0);
 			if (fd < 0) {
 				return NULL;
 			}
 
-			FILE *fptr = _fdopen(fd, mode);
+			fptr = _fdopen(fd, mode);
 			if (!fptr) {
 				_close(fd);
 				return NULL;
@@ -168,7 +174,7 @@ char *fgets_extending(char **buf, int *buflen, FILE *stream)
 		/* No EOL char found, so extend buffer */
 		offset = (*buflen)-1;
 		*buflen += 1000;
-		newbuf = realloc(*buf, *buflen);
+		newbuf = realloc(*buf, (size_t)*buflen);
 		if(!newbuf){
 			return NULL;
 		}

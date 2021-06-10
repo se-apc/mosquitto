@@ -2,14 +2,16 @@
 Copyright (c) 2009-2020 Roger Light <roger@atchoo.org>
 
 All rights reserved. This program and the accompanying materials
-are made available under the terms of the Eclipse Public License v1.0
+are made available under the terms of the Eclipse Public License 2.0
 and Eclipse Distribution License v1.0 which accompany this distribution.
  
 The Eclipse Public License is available at
-   http://www.eclipse.org/legal/epl-v10.html
+   https://www.eclipse.org/legal/epl-2.0/
 and the Eclipse Distribution License is available at
   http://www.eclipse.org/org/documents/edl-v10.php.
  
+SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
+
 Contributors:
    Roger Light - initial implementation and documentation.
 */
@@ -50,7 +52,7 @@ void my_log_callback(struct mosquitto *mosq, void *obj, int level, const char *s
 
 int load_stdin(void)
 {
-	long pos = 0, rlen;
+	size_t pos = 0, rlen;
 	char buf[1024];
 	char *aux_message = NULL;
 
@@ -70,7 +72,12 @@ int load_stdin(void)
 		memcpy(&(cfg.message[pos]), buf, rlen);
 		pos += rlen;
 	}
-	cfg.msglen = pos;
+	if(pos > MQTT_MAX_PAYLOAD){
+		err_printf(&cfg, "Error: Message length must be less than %u bytes.\n\n", MQTT_MAX_PAYLOAD);
+		free(cfg.message);
+		return 1;
+	}
+	cfg.msglen = (int )pos;
 
 	if(!cfg.msglen){
 		err_printf(&cfg, "Error: Zero length input.\n");
@@ -82,8 +89,9 @@ int load_stdin(void)
 
 int load_file(const char *filename)
 {
-	long pos, rlen;
+	size_t pos, rlen;
 	FILE *fptr = NULL;
+	long flen;
 
 	fptr = fopen(filename, "rb");
 	if(!fptr){
@@ -92,30 +100,33 @@ int load_file(const char *filename)
 	}
 	cfg.pub_mode = MSGMODE_FILE;
 	fseek(fptr, 0, SEEK_END);
-	cfg.msglen = ftell(fptr);
-	if(cfg.msglen > 268435455){
+	flen = ftell(fptr);
+	if(flen > MQTT_MAX_PAYLOAD){
 		fclose(fptr);
-		err_printf(&cfg, "Error: File \"%s\" is too large (>268,435,455 bytes).\n", filename);
+		err_printf(&cfg, "Error: File must be less than %u bytes.\n\n", MQTT_MAX_PAYLOAD);
+		free(cfg.message);
 		return 1;
-	}else if(cfg.msglen == 0){
+	}else if(flen == 0){
 		fclose(fptr);
-		err_printf(&cfg, "Error: File \"%s\" is empty.\n", filename);
-		return 1;
-	}else if(cfg.msglen < 0){
+		cfg.message = NULL;
+		cfg.msglen = 0;
+		return 0;
+	}else if(flen < 0){
 		fclose(fptr);
 		err_printf(&cfg, "Error: Unable to determine size of file \"%s\".\n", filename);
 		return 1;
 	}
+	cfg.msglen = (int )flen;
 	fseek(fptr, 0, SEEK_SET);
-	cfg.message = malloc(cfg.msglen);
+	cfg.message = malloc((size_t )cfg.msglen);
 	if(!cfg.message){
 		fclose(fptr);
 		err_printf(&cfg, "Error: Out of memory.\n");
 		return 1;
 	}
 	pos = 0;
-	while(pos < cfg.msglen){
-		rlen = fread(&(cfg.message[pos]), sizeof(char), cfg.msglen-pos, fptr);
+	while(pos < (size_t)cfg.msglen){
+		rlen = fread(&(cfg.message[pos]), sizeof(char), (size_t )cfg.msglen-pos, fptr);
 		pos += rlen;
 	}
 	fclose(fptr);

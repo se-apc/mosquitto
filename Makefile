@@ -1,18 +1,24 @@
 include config.mk
 
-DIRS=lib client src
+DIRS=lib apps client plugins src
 DOCDIRS=man
 DISTDIRS=man
 DISTFILES= \
+	apps/ \
 	client/ \
+	cmake/ \
+	deps/ \
 	examples/ \
+	include/ \
 	installer/ \
 	lib/ \
 	logo/ \
 	man/ \
 	misc/ \
+	plugins/ \
 	security/ \
 	service/ \
+	snap/ \
 	src/ \
 	test/ \
 	\
@@ -23,19 +29,20 @@ DISTFILES= \
 	Makefile \
 	about.html \
 	aclfile.example \
-	compiling.txt \
 	config.h \
 	config.mk \
 	edl-v10 \
-	epl-v10 \
+	epl-v20 \
 	libmosquitto.pc.in \
 	libmosquittopp.pc.in \
 	mosquitto.conf \
-	notice.html \
+	NOTICE.md \
 	pskfile.example \
 	pwfile.example \
-	readme-windows.txt \
-	readme.md
+	README-compiling.md \
+	README-letsencrypt.md \
+	README-windows.txt \
+	README.md
 
 .PHONY : all mosquitto api docs binary check clean reallyclean test install uninstall dist sign copy localdocker
 
@@ -80,7 +87,7 @@ ptest : mosquitto
 utest : mosquitto
 	$(MAKE) -C test utest
 
-install : mosquitto
+install : all
 	set -e; for d in ${DIRS}; do $(MAKE) -C $${d} install; done
 ifeq ($(WITH_DOCS),yes)
 	set -e; for d in ${DOCDIRS}; do $(MAKE) -C $${d} install; done
@@ -110,7 +117,6 @@ sign : dist
 
 copy : sign
 	cd dist; scp mosquitto-${VERSION}.tar.gz mosquitto-${VERSION}.tar.gz.asc mosquitto:site/mosquitto.org/files/source/
-	cd dist; scp *.html mosquitto:site/mosquitto.org/man/
 	scp ChangeLog.txt mosquitto:site/mosquitto.org/
 
 coverage :
@@ -126,5 +132,5 @@ localdocker : reallyclean
 	cd dockertmp/; tar -zcf mosq.tar.gz mosquitto-${VERSION}/
 	cp dockertmp/mosq.tar.gz docker/local
 	rm -rf dockertmp/
-	cd docker/local && docker build .
+	cd docker/local && docker build . -t eclipse-mosquitto:local
 

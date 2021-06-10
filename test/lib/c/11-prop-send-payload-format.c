@@ -18,6 +18,7 @@ void on_connect(struct mosquitto *mosq, void *obj, int rc)
 	}else{
 		rc2 = mosquitto_property_add_byte(&proplist, MQTT_PROP_PAYLOAD_FORMAT_INDICATOR, 1);
 		mosquitto_publish_v5(mosq, &sent_mid, "prop/qos0", strlen("message"), "message", 0, false, proplist);
+		mosquitto_property_free_all(&proplist);
 	}
 }
 
@@ -42,6 +43,9 @@ int main(int argc, char *argv[])
 	mosquitto_lib_init();
 
 	mosq = mosquitto_new("prop-test", true, NULL);
+	if(mosq == NULL){
+		return 1;
+	}
 	mosquitto_connect_callback_set(mosq, on_connect);
 	mosquitto_publish_callback_set(mosq, on_publish);
 	tmp = MQTT_PROTOCOL_V5;
@@ -52,6 +56,7 @@ int main(int argc, char *argv[])
 	while(run == -1){
 		rc = mosquitto_loop(mosq, -1, 1);
 	}
+	mosquitto_destroy(mosq);
 
 	mosquitto_lib_cleanup();
 	return run;

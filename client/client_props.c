@@ -2,14 +2,16 @@
 Copyright (c) 2018-2020 Roger Light <roger@atchoo.org>
 
 All rights reserved. This program and the accompanying materials
-are made available under the terms of the Eclipse Public License v1.0
+are made available under the terms of the Eclipse Public License 2.0
 and Eclipse Distribution License v1.0 which accompany this distribution.
  
 The Eclipse Public License is available at
-   http://www.eclipse.org/legal/epl-v10.html
+   https://www.eclipse.org/legal/epl-2.0/
 and the Eclipse Distribution License is available at
   http://www.eclipse.org/org/documents/edl-v10.php.
  
+SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
+
 Contributors:
    Roger Light - initial implementation and documentation.
 */
@@ -65,6 +67,8 @@ int cfg_parse_property(struct mosq_config *cfg, int argc, char *argv[], int *idx
 	int cmd, identifier, type;
 	mosquitto_property **proplist;
 	int rc;
+	long tmpl;
+	size_t szt;
 
 	/* idx now points to "command" */
 	if((*idx)+2 > argc-1){
@@ -86,7 +90,7 @@ int cfg_parse_property(struct mosq_config *cfg, int argc, char *argv[], int *idx
 	}
 
 	if(mosquitto_property_check_command(cmd, identifier)){
-		fprintf(stderr, "Error: %s property not allow for %s in --property argument.\n\n", propname, cmdname);
+		fprintf(stderr, "Error: %s property not allowed for %s in --property argument.\n\n", propname, cmdname);
 		return MOSQ_ERR_INVAL;
 	}
 
@@ -161,19 +165,44 @@ int cfg_parse_property(struct mosq_config *cfg, int argc, char *argv[], int *idx
 
 	switch(type){
 		case MQTT_PROP_TYPE_BYTE:
-			rc = mosquitto_property_add_byte(proplist, identifier, atoi(value));
+			tmpl = atol(value);
+			if(tmpl < 0 || tmpl > UINT8_MAX){
+				fprintf(stderr, "Error: Property value (%ld) out of range for property %s.\n\n", tmpl, propname);
+				return MOSQ_ERR_INVAL;
+			}
+			rc = mosquitto_property_add_byte(proplist, identifier, (uint8_t )tmpl);
 			break;
 		case MQTT_PROP_TYPE_INT16:
-			rc = mosquitto_property_add_int16(proplist, identifier, atoi(value));
+			tmpl = atol(value);
+			if(tmpl < 0 || tmpl > UINT16_MAX){
+				fprintf(stderr, "Error: Property value (%ld) out of range for property %s.\n\n", tmpl, propname);
+				return MOSQ_ERR_INVAL;
+			}
+			rc = mosquitto_property_add_int16(proplist, identifier, (uint16_t )tmpl);
 			break;
 		case MQTT_PROP_TYPE_INT32:
-			rc = mosquitto_property_add_int32(proplist, identifier, atoi(value));
+			tmpl = atol(value);
+			if(tmpl < 0 || tmpl > UINT32_MAX){
+				fprintf(stderr, "Error: Property value (%ld) out of range for property %s.\n\n", tmpl, propname);
+				return MOSQ_ERR_INVAL;
+			}
+			rc = mosquitto_property_add_int32(proplist, identifier, (uint32_t )tmpl);
 			break;
 		case MQTT_PROP_TYPE_VARINT:
-			rc = mosquitto_property_add_varint(proplist, identifier, atoi(value));
+			tmpl = atol(value);
+			if(tmpl < 0 || tmpl > UINT32_MAX){
+				fprintf(stderr, "Error: Property value (%ld) out of range for property %s.\n\n", tmpl, propname);
+				return MOSQ_ERR_INVAL;
+			}
+			rc = mosquitto_property_add_varint(proplist, identifier, (uint32_t )tmpl);
 			break;
 		case MQTT_PROP_TYPE_BINARY:
-			rc = mosquitto_property_add_binary(proplist, identifier, value, strlen(value));
+			szt = strlen(value);
+			if(szt > UINT16_MAX){
+				fprintf(stderr, "Error: Property value too long for property %s.\n\n", propname);
+				return MOSQ_ERR_INVAL;
+			}
+			rc = mosquitto_property_add_binary(proplist, identifier, value, (uint16_t )szt);
 			break;
 		case MQTT_PROP_TYPE_STRING:
 			rc = mosquitto_property_add_string(proplist, identifier, value);

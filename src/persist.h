@@ -2,14 +2,16 @@
 Copyright (c) 2010-2020 Roger Light <roger@atchoo.org>
 
 All rights reserved. This program and the accompanying materials
-are made available under the terms of the Eclipse Public License v1.0
+are made available under the terms of the Eclipse Public License 2.0
 and Eclipse Distribution License v1.0 which accompany this distribution.
  
 The Eclipse Public License is available at
-   http://www.eclipse.org/legal/epl-v10.html
+   https://www.eclipse.org/legal/epl-2.0/
 and the Eclipse Distribution License is available at
   http://www.eclipse.org/org/documents/edl-v10.php.
  
+SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
+
 Contributors:
    Roger Light - initial implementation and documentation.
 */
@@ -17,7 +19,9 @@ Contributors:
 #ifndef PERSIST_H
 #define PERSIST_H
 
-#define MOSQ_DB_VERSION 5
+#include "mosquitto_broker_internal.h"
+
+#define MOSQ_DB_VERSION 6
 
 /* DB read/write */
 extern const unsigned char magic[15];
@@ -57,15 +61,28 @@ struct PF_cfg{
 	uint8_t dbid_size;
 };
 
-struct PF_client{
+struct PF_client_v5{
 	int64_t session_expiry_time;
 	uint32_t session_expiry_interval;
 	uint16_t last_mid;
 	uint16_t id_len;
 };
+struct PF_client{
+	/* struct PF_client_v5; */
+	int64_t session_expiry_time;
+	uint32_t session_expiry_interval;
+	uint16_t last_mid;
+	uint16_t id_len;
+
+	uint16_t listener_port;
+	uint16_t username_len;
+	/* tail: 4 byte padding, because 64bit member 
+	 * forces multiple of 8 for struct size */
+};
 struct P_client{
 	struct PF_client F;
 	char *client_id;
+	char *username;
 };
 
 
@@ -99,7 +116,7 @@ struct PF_msg_store{
 };
 struct P_msg_store{
 	struct PF_msg_store F;
-	mosquitto__payload_uhpa payload;
+	void *payload;
 	struct mosquitto source;
 	char *topic;
 	mosquitto_property *properties;
@@ -131,29 +148,29 @@ struct P_retain{
 int persist__read_string_len(FILE *db_fptr, char **str, uint16_t len);
 int persist__read_string(FILE *db_fptr, char **str);
 
-int persist__chunk_header_read(FILE *db_fptr, int *chunk, int *length);
+int persist__chunk_header_read(FILE *db_fptr, uint32_t *chunk, uint32_t *length);
 
-int persist__chunk_header_read_v234(FILE *db_fptr, int *chunk, int *length);
+int persist__chunk_header_read_v234(FILE *db_fptr, uint32_t *chunk, uint32_t *length);
 int persist__chunk_cfg_read_v234(FILE *db_fptr, struct PF_cfg *chunk);
-int persist__chunk_client_read_v234(FILE *db_fptr, struct P_client *chunk, int db_version);
+int persist__chunk_client_read_v234(FILE *db_fptr, struct P_client *chunk, uint32_t db_version);
 int persist__chunk_client_msg_read_v234(FILE *db_fptr, struct P_client_msg *chunk);
-int persist__chunk_msg_store_read_v234(FILE *db_fptr, struct P_msg_store *chunk, int db_version);
+int persist__chunk_msg_store_read_v234(FILE *db_fptr, struct P_msg_store *chunk, uint32_t db_version);
 int persist__chunk_retain_read_v234(FILE *db_fptr, struct P_retain *chunk);
 int persist__chunk_sub_read_v234(FILE *db_fptr, struct P_sub *chunk);
 
-int persist__chunk_header_read_v5(FILE *db_fptr, int *chunk, int *length);
-int persist__chunk_cfg_read_v5(FILE *db_fptr, struct PF_cfg *chunk);
-int persist__chunk_client_read_v5(FILE *db_fptr, struct P_client *chunk);
-int persist__chunk_client_msg_read_v5(FILE *db_fptr, struct P_client_msg *chunk, uint32_t length);
-int persist__chunk_msg_store_read_v5(FILE *db_fptr, struct P_msg_store *chunk, uint32_t length);
-int persist__chunk_retain_read_v5(FILE *db_fptr, struct P_retain *chunk);
-int persist__chunk_sub_read_v5(FILE *db_fptr, struct P_sub *chunk);
+int persist__chunk_header_read_v56(FILE *db_fptr, uint32_t *chunk, uint32_t *length);
+int persist__chunk_cfg_read_v56(FILE *db_fptr, struct PF_cfg *chunk);
+int persist__chunk_client_read_v56(FILE *db_fptr, struct P_client *chunk, uint32_t db_version);
+int persist__chunk_client_msg_read_v56(FILE *db_fptr, struct P_client_msg *chunk, uint32_t length);
+int persist__chunk_msg_store_read_v56(FILE *db_fptr, struct P_msg_store *chunk, uint32_t length);
+int persist__chunk_retain_read_v56(FILE *db_fptr, struct P_retain *chunk);
+int persist__chunk_sub_read_v56(FILE *db_fptr, struct P_sub *chunk);
 
-int persist__chunk_cfg_write_v5(FILE *db_fptr, struct PF_cfg *chunk);
-int persist__chunk_client_write_v5(FILE *db_fptr, struct P_client *chunk);
-int persist__chunk_client_msg_write_v5(FILE *db_fptr, struct P_client_msg *chunk);
-int persist__chunk_message_store_write_v5(FILE *db_fptr, struct P_msg_store *chunk);
-int persist__chunk_retain_write_v5(FILE *db_fptr, struct P_retain *chunk);
-int persist__chunk_sub_write_v5(FILE *db_fptr, struct P_sub *chunk);
+int persist__chunk_cfg_write_v6(FILE *db_fptr, struct PF_cfg *chunk);
+int persist__chunk_client_write_v6(FILE *db_fptr, struct P_client *chunk);
+int persist__chunk_client_msg_write_v6(FILE *db_fptr, struct P_client_msg *chunk);
+int persist__chunk_message_store_write_v6(FILE *db_fptr, struct P_msg_store *chunk);
+int persist__chunk_retain_write_v6(FILE *db_fptr, struct P_retain *chunk);
+int persist__chunk_sub_write_v6(FILE *db_fptr, struct P_sub *chunk);
 
 #endif
